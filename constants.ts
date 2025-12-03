@@ -1,5 +1,7 @@
 import { InventoryItem } from './types';
 
+// Helper to generate temporary IDs for the constant list
+// These IDs will be replaced by Firestore IDs upon insertion
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export const INITIAL_INVENTORY: InventoryItem[] = [

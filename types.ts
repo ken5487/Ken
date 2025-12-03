@@ -21,4 +21,4 @@ export interface TransactionRecord {
   note: string;
 }
 
-export type TabView = 'dashboard' | 'transaction' | 'history';
+export type TabView = 'dashboard' | 'transaction' | 'history' | 'admin';

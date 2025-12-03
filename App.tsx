@@ -5,6 +5,7 @@ import { TabNavigation } from './components/TabNavigation';
 import { Dashboard } from './components/Dashboard';
 import { TransactionForm } from './components/TransactionForm';
 import { HistoryLog } from './components/HistoryLog';
+import { MedicineManager } from './components/MedicineManager';
 import { Pill, Database, Loader2 } from 'lucide-react';
 
 // Firebase Imports
@@ -12,7 +13,6 @@ import { db } from './firebase';
 import { 
   collection, 
   onSnapshot, 
-  addDoc, 
   doc, 
   updateDoc, 
   runTransaction,
@@ -30,21 +30,28 @@ export default function App() {
 
   // 1. Sync Inventory from Firestore
   useEffect(() => {
+    // Order by name then size for better organization
     const q = query(collection(db, 'inventory'), orderBy('name'), orderBy('size'));
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items: InventoryItem[] = [];
       snapshot.forEach((doc) => {
         items.push({ id: doc.id, ...doc.data() } as InventoryItem);
       });
       
-      setInventory(items);
-      
-      // Initial Data Seeding: If DB is empty, upload INITIAL_INVENTORY
-      if (items.length === 0 && !loading) {
-        seedInitialData();
+      // Initial Data Seeding Check
+      // We only seed if the list is empty AND we aren't already loading (to prevent partial loads triggering this)
+      if (items.length === 0 && !snapshot.metadata.fromCache) {
+         // We do a separate check or just allow user to manually add. 
+         // However, per requirement, we should seed if empty.
+         // Let's call seed function, but be careful about infinite loops.
+         // We'll use a local storage flag or just trust the empty check.
+         seedInitialData(snapshot.empty);
+      } else {
+         setInventory(items);
       }
       
-      if (loading) setLoading(false);
+      setLoading(false);
     }, (err) => {
       console.error("Firestore error:", err);
       setError("無法連接資料庫，請檢查網路或 Firebase 設定。");
@@ -71,16 +78,27 @@ export default function App() {
   }, []);
 
   // Helper: Seed initial data if database is empty
-  const seedInitialData = async () => {
+  const seedInitialData = async (isEmpty: boolean) => {
+    if (!isEmpty) return;
+    
+    // Double check just to be safe (though snapshot.empty is reliable)
+    // We only want to seed if we really have 0 items.
+    // NOTE: This runs every time snapshot updates to empty.
+    // In a real app, you might want a more robust "Seed" button in Admin,
+    // but for this requirement, we auto-seed.
+    
     try {
+      console.log("Seeding initial data...");
       const batch = writeBatch(db);
-      INITIAL_INVENTORY.forEach(item => {
-        // Create a new reference with auto-generated ID
+      
+      // We need to use INITIAL_INVENTORY from constants
+      for (const item of INITIAL_INVENTORY) {
         const docRef = doc(collection(db, "inventory"));
         // Remove the local random ID, let Firestore generate one, or use the docRef.id
         const { id, ...data } = item; 
-        batch.set(docRef, { ...data, stock: item.stock, safetyStock: item.safetyStock });
-      });
+        batch.set(docRef, { ...data });
+      }
+      
       await batch.commit();
       console.log("Initial data seeded successfully");
     } catch (e) {
@@ -135,6 +153,7 @@ export default function App() {
         };
         transaction.set(newRecordRef, newRecordData);
       });
+      // User feedback handled by UI updates automatically via snapshot
     } catch (e: any) {
       console.error("Transaction failed: ", e);
       alert(`交易失敗: ${e.message}`);
@@ -224,6 +243,10 @@ export default function App() {
               </div>
               <HistoryLog logs={history} />
             </div>
+          )}
+
+          {activeTab === 'admin' && (
+             <MedicineManager inventory={inventory} />
           )}
         </div>
       </main>

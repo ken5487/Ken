@@ -1,0 +1,5 @@
+{
+  "name": "MediStock Pro",
+  "description": "A comprehensive pharmaceutical inventory management system designed for tracking stock levels, managing inbound/outbound transactions, and calculating restocking needs.",
+  "requestFramePermissions": []
+}
